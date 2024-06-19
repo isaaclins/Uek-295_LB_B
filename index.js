@@ -309,7 +309,88 @@ app.put('/tasks/:id', express.json(), (req, res) => {
     });
 });
 
+// bis linie 64 von 6.2 kopiert.
+/**
+ * @openapi
+ * /tasks/{id}:
+ *   delete:
+ *     tags: 
+ *      - tasks
+ *     summary: Delete a task
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The task ID
+ *     responses:
+ *       200:
+ *         description: Successful operation
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 id:
+ *                   type: integer
+ *                 title:
+ *                   type: string
+ *                 description:
+ *                   type: string
+ *                 done:
+ *                   type: boolean
+ *                 dueDate:
+ *                   type: string
+ *             example:
+ *               id: 123
+ *               title: Deleted Task
+ *               description: This is a deleted task
+ *               done: true
+ *               dueDate: "2024-01-31"
+ *       404:
+ *         description: Task not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *             example:
+ *               error: Task not found
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *             example:
+ *               error: An error occurred while deleting the task.
+ */
+app.delete('/tasks/:id', (req, res) => {
+    const id = parseInt(req.params.id);
+    const taskIndex = tasks.findIndex(task => task.id === id);
+    if (taskIndex === -1) {
+        return res.status(404).json({ error: 'Task not found.' });
+    }
+    const deletedTask = tasks.splice(taskIndex, 1)[0];
+    fs.writeFile('tasks.json', JSON.stringify(tasks), (err) => {
+        if (err) {
+            console.error('error:', err);
+            return res.status(500).json({ error: 'An error occurred while deleting the task.' });
+        }
+        res.json(deletedTask);
+    });
+});
 
+
+
+
+app.post('/task/login')
 app.listen(3000, () => {
     console.log('Server lauft uf port 3000');
 });
