@@ -67,7 +67,67 @@ app.get('/tasks', (req, res) => {
 });
 
 
-
+// bis linie 64 von 6.2 kopiert.
+/**
+ * @openapi
+ * /tasks:
+ *   post:
+ *     tags: 
+ *      - tasks
+ *     summary: Post a task
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               done:
+ *                 type: boolean
+ *               dueDate:
+ *                 type: string
+ *             example:
+ *               title: Another Task
+ *               description: This is task 1
+ *               done: false
+ *               dueDate: "2024-01-31"
+ *     responses:
+ *       201:
+ *         description: Created
+ *       400:
+ *         description: Bad Request
+ *       500:
+ *         description: Internal Server Error
+ */
+app.post('/tasks', express.json(), (req, res) => {
+    const newTask = req.body;
+    if (!newTask.title || !newTask.description || !newTask.dueDate) {
+        return res.status(400).json({ error: 'Missing required fields.' });
+    }
+    if (typeof newTask.title !== 'string' || typeof newTask.description !== 'string' || typeof newTask.dueDate !== 'string') {
+        return res.status(400).json({ error: 'Invalid field types.' });
+    }
+    if (typeof newTask.done !== 'boolean') {
+        return res.status(400).json({ error: 'Invalid field type for "done".' });
+    }
+    let id = 1;
+    while (tasks.find(task => task.id === id)) {
+        id++;
+    }
+    newTask.id = id;
+    tasks.push(newTask);
+    fs.writeFile('tasks.json', JSON.stringify(tasks), (err) => {
+        if (err) {
+            console.error('error:', err);
+            return res.status(500).json({ error: 'An error occurred while saving the task.' });
+        }
+        res.status(201).json(newTask);
+    });
+});
 
 
 app.listen(3000, () => {
