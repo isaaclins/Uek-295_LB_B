@@ -191,6 +191,125 @@ app.post('/tasks', express.json(), (req, res) => {
 });
 
 
+/**
+ * @openapi
+ * /tasks/{id}:
+ *   put:
+ *     tags: 
+ *      - tasks
+ *     summary: Update a task
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The task ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               done:
+ *                 type: boolean
+ *               dueDate:
+ *                 type: string
+ *             example:
+ *               title: Updated Task
+ *               description: This is an updated task
+ *               done: true
+ *               dueDate: "2024-01-31"
+ *     responses:
+ *       200:
+ *         description: Successful operation
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 id:
+ *                   type: integer
+ *                 title:
+ *                   type: string
+ *                 description:
+ *                   type: string
+ *                 done:
+ *                   type: boolean
+ *                 dueDate:
+ *                   type: string
+ *             example:
+ *               id: 123
+ *               title: Updated Task
+ *               description: This is an updated task
+ *               done: true
+ *               dueDate: "2024-01-31"
+ *       404:
+ *         description: Task not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *             example:
+ *               error: Task not found
+ *       400:
+ *         description: Bad Request
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *             example:
+ *               error: Missing required fields.
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *             example:
+ *               error: An error occurred while updating the task.
+ */
+app.put('/tasks/:id', express.json(), (req, res) => {
+    const id = parseInt(req.params.id);
+    const taskIndex = tasks.findIndex(task => task.id === id);
+    if (taskIndex === -1) {
+        return res.status(404).json({ error: 'Task not found.' });
+    }
+    const updatedTask = req.body;
+    if (!updatedTask.title || !updatedTask.description || !updatedTask.dueDate) {
+        return res.status(400).json({ error: 'Missing required fields.' });
+    }
+    if (typeof updatedTask.title !== 'string' || typeof updatedTask.description !== 'string' || typeof updatedTask.dueDate !== 'string') {
+        return res.status(400).json({ error: 'Invalid field types.' });
+    }
+    if (typeof updatedTask.done !== 'boolean') {
+        return res.status(400).json({ error: 'Invalid field type for "done".' });
+    }
+    tasks[taskIndex] = { ...tasks[taskIndex], ...updatedTask };
+    fs.writeFile('tasks.json', JSON.stringify(tasks), (err) => {
+        if (err) {
+            console.error('error:', err);
+            return res.status(500).json({ error: 'An error occurred while updating the task.' });
+        }
+        res.json(tasks[taskIndex]);
+    });
+});
+
+
 app.listen(3000, () => {
     console.log('Server lauft uf port 3000');
 });
