@@ -1,13 +1,3 @@
-Isaac-Lins_Swisscom: @workspace write a detailed documentation for the whole project in readme.md. 16. Das Projekt wurde sauber dokumentiert
-› Die Applikation verfügt über eine README-Datei mit Namen des Projektes und Autor
-› Die README-Datei beinhaltet die Dokumentation der Entwicklungsumgebung
-(Setup, Runtime, …)
-› Die Dokumentation der Endpunkte wurde im Projekt mitgeliefert.
-my name is isaac lins 
-
-Workspace: Sure, here's a detailed documentation for your project:
-
-```markdown
 # m295_LB_B
 
 ## Author
@@ -71,5 +61,5 @@ The project's dependencies are listed in the [package.json](code/package.json) f
 ## Data
 
 The tasks data is stored in a JSON file located at `data/tasks.json`.
-```
-Thank you very much and have a nice day.
+
+###### Thank you very much and have a nice day.
