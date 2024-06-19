@@ -66,6 +66,67 @@ app.get('/tasks', (req, res) => {
     res.json(tasks);
 });
 
+/**
+ * @openapi
+ * /tasks/{id}:
+ *   get:
+ *     tags: 
+ *      - tasks
+ *     summary: Get a task by id
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The task id
+ *     responses:
+ *       200:
+ *         description: Successful operation
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 id:
+ *                   type: integer
+ *                 title:
+ *                   type: string
+ *                 description:
+ *                   type: string
+ *                 done:
+ *                   type: boolean
+ *                 dueDate:
+ *                   type: string
+ *             example:
+ *               id: 123
+ *               title: Another Task
+ *               description: This is task 123
+ *               done: false
+ *               dueDate: "2024-01-31"
+ *       404:
+ *         description: Task not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *             example:
+ *               error: Task not found
+ */
+app.get('/tasks/:id', (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const task = tasks.find(task => task.id === id);
+    if (!task) {
+        return res.status(404).json({ error: 'Task not found.' });
+    }
+    res.json(task);
+});
+
+
+
 
 // bis linie 64 von 6.2 kopiert.
 /**
