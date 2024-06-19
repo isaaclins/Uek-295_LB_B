@@ -1,5 +1,5 @@
 # m295_LB_B
-
+Please not that the commit messages cna be seen at https://github.com/isaaclins/m295_LB_B/commits/main/. I do not have the patience to do that in the zip. Excuse me.
 ## Author
 Isaac Lins
 
