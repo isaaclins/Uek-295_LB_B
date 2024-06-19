@@ -3,6 +3,7 @@ const fs = require('fs');
 const swaggerJsdoc = require('swagger-jsdoc');              // Von 6.2 kopiert.
 const swaggerUi = require('swagger-ui-express');            // Von 6.2 kopiert.
 const app = express();
+app.use(express.json());
 
 
                                                             // Von Linie 6 bis 23 von 6.2 kopiert. 
@@ -390,7 +391,48 @@ app.delete('/tasks/:id', (req, res) => {
 
 
 
-app.post('/task/login')
+app.post('/tasks/login', (req, res) => {
+    const { email, password } = req.body;
+    if (!email || !password) {
+        return res.status(400).json({ error: 'Email and password are required' });
+    }
+    if (password === 'm295') {
+        return res.status(200).json({ message: 'Automatischer Zugriff aufgrund des Passworts' });
+    } else {
+        const token = Math.random().toString(36).substring(2);
+        const user = { email, password, token };
+
+        fs.readFile('users.json', 'utf8', (err, data) => {
+            if (err) {
+                return res.status(500).json({ error: 'An error occurred while reading users.json' });
+            }
+            let users = [];
+            if (data) {
+                users = JSON.parse(data);
+            }
+            const existingUserIndex = users.findIndex(u => u.email === email);
+            if (existingUserIndex !== -1) {
+                if (users[existingUserIndex].password !== password) {
+                    return res.status(401).json({ error: 'Invalid password' });
+                }
+                users[existingUserIndex].token = token;
+            } else {
+                users.push(user);
+            }
+            fs.writeFile('users.json', JSON.stringify(users), (err) => {
+                if (err) {
+                    console.error('error:', err);
+                    return res.status(500).json({ error: 'An error occurred while updating users.json' });
+                }
+                res.setHeader('Content-Type', 'application/json');
+                res.json(user);
+            });
+        });
+    }
+});
+
+
+
 app.listen(3000, () => {
     console.log('Server lauft uf port 3000');
 });
