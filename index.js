@@ -1,12 +1,7 @@
 const express = require('express');
 const fs = require('fs');
-const swaggerJsdoc = require('swagger-jsdoc');              // Von 6.2 kopiert.
-const swaggerUi = require('swagger-ui-express');            // Von 6.2 kopiert.
-const app = express();
-app.use(express.json());
-
-
-                                                            // Von Linie 6 bis 23 von 6.2 kopiert. 
+const swaggerJsdoc = require('swagger-jsdoc');
+const swaggerUi = require('swagger-ui-express');
 const options = {
     definition: {
         openapi: '3.0.0',
@@ -24,21 +19,11 @@ const options = {
     apis: ['./index.js'],
 };
 const swaggerSpec = swaggerJsdoc(options);
+const app = express();
 app.use('/swagger-ui', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
-function authenticate(req, res, next) {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
-
-    if (token == null) return res.sendStatus(401); 
-    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, user) => {
-        if (err) return res.sendStatus(403);
-        req.user = user;
-        next();
-    });
-}
 
 let tasks = [];
-fs.readFile('tasks.json', 'utf8', (err, data) => {
+fs.readFile('data/tasks.json', 'utf8', (err, data) => {
     if (err) {
         console.error('error:',err);
         return;
@@ -46,7 +31,33 @@ fs.readFile('tasks.json', 'utf8', (err, data) => {
     tasks = JSON.parse(data);
 });
 
-// bis linie 64 von 6.2 kopiert.
+const secretKey = crypto.randomBytes(64).toString('hex');
+
+app.use(session({
+  secret: secretKey,
+  resave: false,
+  saveUninitialized: true,
+  cookie: { secure: false }
+}));
+
+
+
+function authenticate(req, res, next) {
+    if (req.session && req.session.user) {
+      next();
+    } else {
+      res.status(403).json({ message: 'Forbidden: Authentication required' });
+    }
+  }
+  
+  function generateToken() {
+    return Math.random().toString(36).substr(2);
+  }
+
+
+
+
+
 /**
  * @openapi
  * /tasks:
@@ -73,14 +84,10 @@ fs.readFile('tasks.json', 'utf8', (err, data) => {
  *                   done: true
  *                   dueDate: "2024-04-26"
  */
-app.get('/tasks/:id',authenticate, (req, res, next) => {
-    try {
-      res.json(tasks);
-    } catch (err) {
-      console.error(`Error listing tasks: ${err.message}`);
-      res.status(500).json({ message: 'Internal Server Error' });
-    }
-  })
+app.get('/tasks', authenticate,(req, res) => {
+    res.json(tasks);
+});
+
 /**
  * @openapi
  * /tasks/{id}:
@@ -131,7 +138,7 @@ app.get('/tasks/:id',authenticate, (req, res, next) => {
  *             example:
  *               error: Task not found
  */
-app.get('/tasks/:id', authenticate, (req, res) => {
+app.get('/tasks/:id',  authenticate,(req, res) => {
     const id = parseInt(req.params.id, 10);
     const task = tasks.find(task => task.id === id);
     if (!task) {
@@ -140,7 +147,7 @@ app.get('/tasks/:id', authenticate, (req, res) => {
     res.json(task);
 });
 
-// bis linie 64 von 6.2 kopiert.
+
 /**
  * @openapi
  * /tasks:
@@ -193,7 +200,7 @@ app.post('/tasks', authenticate, express.json(), (req, res) => {
     }
     newTask.id = id;
     tasks.push(newTask);
-    fs.writeFile('tasks.json', JSON.stringify(tasks), (err) => {
+    fs.writeFile('data/tasks.json', JSON.stringify(tasks), (err) => {
         if (err) {
             console.error('error:', err);
             return res.status(500).json({ error: 'An error occurred while saving the task.' });
@@ -294,7 +301,7 @@ app.post('/tasks', authenticate, express.json(), (req, res) => {
  *             example:
  *               error: An error occurred while updating the task.
  */
-app.put('/tasks/:id', authenticate, express.json(), (req, res) => {
+app.put('/tasks/:id',  authenticate,express.json(), (req, res) => {
     const id = parseInt(req.params.id);
     const taskIndex = tasks.findIndex(task => task.id === id);
     if (taskIndex === -1) {
@@ -311,7 +318,7 @@ app.put('/tasks/:id', authenticate, express.json(), (req, res) => {
         return res.status(400).json({ error: 'Invalid field type for "done".' });
     }
     tasks[taskIndex] = { ...tasks[taskIndex], ...updatedTask };
-    fs.writeFile('tasks.json', JSON.stringify(tasks), (err) => {
+    fs.writeFile('data/tasks.json', JSON.stringify(tasks), (err) => {
         if (err) {
             console.error('error:', err);
             return res.status(500).json({ error: 'An error occurred while updating the task.' });
@@ -320,7 +327,6 @@ app.put('/tasks/:id', authenticate, express.json(), (req, res) => {
     });
 });
 
-// bis linie 64 von 6.2 kopiert.
 /**
  * @openapi
  * /tasks/{id}:
@@ -382,102 +388,23 @@ app.put('/tasks/:id', authenticate, express.json(), (req, res) => {
  *             example:
  *               error: An error occurred while deleting the task.
  */
-app.delete('/tasks/logout', authenticate, (req, res, next) => {
-    try {
-      req.session.destroy(err => {
+app.delete('/tasks/:id', authenticate, (req, res) => {
+    const id = parseInt(req.params.id);
+    const taskIndex = tasks.findIndex(task => task.id === id);
+    if (taskIndex === -1) {
+        return res.status(404).json({ error: 'Task not found.' });
+    }
+    const deletedTask = tasks.splice(taskIndex, 1)[0];
+    fs.writeFile('data/tasks.json', JSON.stringify(tasks), (err) => {
         if (err) {
-          console.error(`Error destroying session: ${err.message}`);
-          return res.sendStatus(500);
+            console.error('error:', err);
+            return res.status(500).json({ error: 'An error occurred while deleting the task.' });
         }
-        res.sendStatus(204);
-      });
-    } catch (err) {
-      console.error(`Error in logout endpoint: ${err.message}`);
-      res.status(500).json({ message: 'Internal Server Error' });
-    }
-  });
-
-
-
-/**
- * @openapi
- * /tasks/login:
- *   post:
- *     tags: 
- *      - tasks
- *     summary: Login to the application
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               email:
- *                 type: string
- *               password:
- *                 type: string
- *             example:
- *               email: example@example.com
- *               password: password123
- *     responses:
- *       200:
- *         description: Successful login
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 token:
- *                   type: string
- *             example:
- *               token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImV4YW1wbGVAZXhhbXBsZS5jb20iLCJpYXQiOjE2MzE2MzQ4NzEsImV4cCI6MTYzMTYzODQ3MX0.6y6R1vZzJ8Gz6XJ8wJv0Wz3Jw3pYJ2Z0J6QK9zZ0vKk
- *       400:
- *         description: Bad Request
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *             example:
- *               error: Email and password are required
- *       401:
- *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *             example:
- *               error: Invalid credentials
- */
-
-app.post('/tasks/login', (req, res) => {
-    const { email, password } = req.body;
-    if (!email || !password) {
-        return res.status(400).json({ error: 'Email and password are required' });
-    }
-    if (password === 'm295') {
-        const token = Math.random().toString(36).substring(2);
-        res.setHeader('Content-Type', 'application/json');
-        res.json({ token });
-    } else {
-        return res.status(401).json({ error: 'Invalid credentials' });
-    }
+        res.json(deletedTask);
+    });
 });
 
-app.get('/tasks/verify', authenticate, (req, res, next) => {
-    try {
-      res.json({ token: req.session.user.token, message: 'Token is still usable' });
-    } catch (err) {
-      console.error(`Error in verify endpoint: ${err.message}`);
-      res.status(500).json({ message: 'Internal Server Error' });
-    }
-  });
+
 app.listen(3000, () => {
     console.log('Server lauft uf port 3000');
 });
