@@ -1,7 +1,12 @@
+//alle kommentäre wurden mit KI erstellt, inklusive die Swagger Dokumentation.
 const express = require('express');
 const fs = require('fs');
 const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
+const crypto = require('crypto');
+const session = require('express-session');
+const bodyParser = require('body-parser');
+
 const options = {
     definition: {
         openapi: '3.0.0',
@@ -23,7 +28,7 @@ const app = express();
 app.use('/swagger-ui', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 let tasks = [];
-fs.readFile('data/tasks.json', 'utf8', (err, data) => {
+fs.readFile('../data/tasks.json', 'utf8', (err, data) => {
     if (err) {
         console.error('error:',err);
         return;
@@ -32,15 +37,13 @@ fs.readFile('data/tasks.json', 'utf8', (err, data) => {
 });
 
 const secretKey = crypto.randomBytes(64).toString('hex');
-
+app.use(bodyParser.json());
 app.use(session({
   secret: secretKey,
   resave: false,
   saveUninitialized: true,
   cookie: { secure: false }
 }));
-
-
 
 function authenticate(req, res, next) {
     if (req.session && req.session.user) {
@@ -53,10 +56,6 @@ function authenticate(req, res, next) {
   function generateToken() {
     return Math.random().toString(36).substr(2);
   }
-
-
-
-
 
 /**
  * @openapi
@@ -182,6 +181,7 @@ app.get('/tasks/:id',  authenticate,(req, res) => {
  *         description: Bad Request
  *       500:
  *         description: Internal Server Error
+ * 
  */
 app.post('/tasks', authenticate, express.json(), (req, res) => {
     const newTask = req.body;
@@ -200,7 +200,7 @@ app.post('/tasks', authenticate, express.json(), (req, res) => {
     }
     newTask.id = id;
     tasks.push(newTask);
-    fs.writeFile('data/tasks.json', JSON.stringify(tasks), (err) => {
+    fs.writeFile('../data/tasks.json', JSON.stringify(tasks), (err) => {
         if (err) {
             console.error('error:', err);
             return res.status(500).json({ error: 'An error occurred while saving the task.' });
@@ -210,6 +210,7 @@ app.post('/tasks', authenticate, express.json(), (req, res) => {
 });
 
 /**
+ * 
  * @openapi
  * /tasks/{id}:
  *   put:
@@ -318,7 +319,7 @@ app.put('/tasks/:id',  authenticate,express.json(), (req, res) => {
         return res.status(400).json({ error: 'Invalid field type for "done".' });
     }
     tasks[taskIndex] = { ...tasks[taskIndex], ...updatedTask };
-    fs.writeFile('data/tasks.json', JSON.stringify(tasks), (err) => {
+    fs.writeFile('../data/tasks.json', JSON.stringify(tasks), (err) => {
         if (err) {
             console.error('error:', err);
             return res.status(500).json({ error: 'An error occurred while updating the task.' });
@@ -388,6 +389,7 @@ app.put('/tasks/:id',  authenticate,express.json(), (req, res) => {
  *             example:
  *               error: An error occurred while deleting the task.
  */
+
 app.delete('/tasks/:id', authenticate, (req, res) => {
     const id = parseInt(req.params.id);
     const taskIndex = tasks.findIndex(task => task.id === id);
@@ -395,7 +397,7 @@ app.delete('/tasks/:id', authenticate, (req, res) => {
         return res.status(404).json({ error: 'Task not found.' });
     }
     const deletedTask = tasks.splice(taskIndex, 1)[0];
-    fs.writeFile('data/tasks.json', JSON.stringify(tasks), (err) => {
+    fs.writeFile('../data/tasks.json', JSON.stringify(tasks), (err) => {
         if (err) {
             console.error('error:', err);
             return res.status(500).json({ error: 'An error occurred while deleting the task.' });
@@ -404,6 +406,114 @@ app.delete('/tasks/:id', authenticate, (req, res) => {
     });
 });
 
+
+
+/**
+ * @openapi
+ * /login:
+ *   post:
+ *     tags: 
+ *      - token
+ *     summary: Logs in a user
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               username:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Internal Server Error
+ */
+app.post('/login', (req, res, next) => {
+    try {
+      const { username, password } = req.body;
+      
+      if (password === 'error') {
+        throw new Error('Simulated error in login');
+      }
+  
+      if (password === 'm295') {
+        const token = generateToken();
+        req.session.user = { username: username, token: token };
+        res.json({ message: 'Login successful', username: username, token: token });
+      } else {
+        res.sendStatus(401);
+      }
+    } catch (err) {
+      console.error(`Error in login endpoint: ${err.message}`);
+      res.status(500).json({ message: 'Internal Server Error' });
+    }
+  });
+
+/**
+ * @openapi
+ * /verify:
+ *   get:
+ *     tags: 
+ *      - token
+ *     summary: Verifies the session token
+ *     responses:
+ *       200:
+ *         description: Token is still usable
+ *       403:
+ *         description: Forbidden, Authentication required
+ *       500:
+ *         description: Internal Server Error
+ */
+app.get('/verify', authenticate, (req, res, next) => {
+  try {
+    res.json({ token: req.session.user.token, message: 'Token is still usable' });
+  } catch (err) {
+    console.error(`Error in verify endpoint: ${err.message}`);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
+/**
+ * @openapi
+ * /logout:
+ *   delete:
+ *     tags: 
+ *      - token
+ *     summary: Logs out the current user
+ *     responses:
+ *       204:
+ *         description: Logout successful
+ *       403:
+ *         description: Forbidden, Authentication required
+ *       500:
+ *         description: Internal Server Error
+ *
+ */
+app.delete('/logout', authenticate, (req, res, next) => {
+    try {
+      req.session.destroy(err => {
+        if (err) {
+          console.error(`Error destroying session: ${err.message}`);
+          return res.sendStatus(500);
+        }
+        res.sendStatus(204);
+      });
+    } catch (err) {
+      console.error(`Error in logout endpoint: ${err.message}`);
+      res.status(500).json({ message: 'Internal Server Error' });
+    }
+  });
+
+  
+  app.use((req, res) => {
+    res.status(404).json({ Error: 'Site Not found' });
+  });
 
 app.listen(3000, () => {
     console.log('Server lauft uf port 3000');
